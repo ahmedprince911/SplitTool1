@@ -14,7 +14,7 @@ def logging():
     fileName = pcp_id + "-" + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".txt"
     logFile = os.path.join(logs_container, fileName)
     with open(logFile, 'w') as f:
-        f.write(message)
+        f.write(message) 
 
 # Function for delete target parcel and dependencies
 def delete():
@@ -170,78 +170,62 @@ def backup():
     return "\nBackup for PCP ( " + targets + ") has been taken and archived"
 
 # Function for create line 
-def createLine():
+def createLine(Parm1, Parm2):
+    # arcpy.AddMessage("Parm1..."+ Parm1 )
+    X1 = Parm1.split()[0]
+    Y1 = Parm1.split()[1]
+    
+    X2 = Parm2.split()[0]
+    Y2 = Parm2.split()[1]
+
+    LineGeo = None
     workspace = arcpy.env.workspace
-
-    # Define the start and end points
-    # start_point = arcpy.Point(672222.2357000,2743609.7567000)  # Replace with your start point coordinates
-    # end_point = arcpy.Point(672206.2290000,2743574.3998000)  # Replace with your end point coordinates
-
-    # Create a new feature dataset to store the line feature class
-    # feature_dataset = arcpy.CreateUniqueName("FeatureDataset", workspace)
-    # arcpy.CreateFeatureDataset_management(workspace, feature_dataset)
-
-    # Create a new feature class to store the line feature
-    # output_fc = arcpy.CreateUniqueName("LineFeature", feature_dataset)
-
-    # Create an array of point objects and add the start and end points
-    # array = arcpy.Array()
-    # array.add(start_point)
-    # array.add(end_point)
-
-    # Create a Polyline object using the array of points
-    # polyline = arcpy.Polyline(array)
-
-    # Create the line feature class
-    #arcpy.CreateFeatureclass_management(feature_dataset, output_fc, "Polyline")
-
-    # Create a new row in the feature class
-    #with arcpy.da.InsertCursor(output_fc, "SHAPE@") as cursor:
-    #   cursor.insertRow([polyline])
-
-    # Add the feature dataset to the map
-    #mapx.addDataFromPath(feature_dataset)
-
-    #workspace = r"C:\\Users\\afarrag\\Documents\\ArcGIS\\Projects\\splitTool\\splitTool.gdb" #arcpy.env.workspace
-    # arcpy.env.workspace = workspace    
+    # workspace = r"C:\\Users\\afarrag\\Documents\\ArcGIS\\Projects\\splitTool\\splitTool.gdb" #arcpy.env.workspace
+    #arcpy.env.workspace = workspace
+    arcpy.AddMessage("Wrkspace..."+ workspace )
     spatial_reference = arcpy.SpatialReference(9358)
 
-    try:
-        # Define the start and end points
-        start_point = arcpy.Point(672138.4331758, 2743588.4005107)  # Replace with your start point coordinates
-        end_point =   arcpy.Point(672065.9915564, 2743554.4877718)  # Replace with your end point coordinates
+    # Define the start and end points
+    start_point = arcpy.Point(X1, Y1)   #arcpy.Point(672138.4331758, 2743588.4005107)  #
+    end_point   = arcpy.Point(X2, Y2)   #arcpy.Point(672065.9915564, 2743554.4877718)  #
 
-        # Create a new feature dataset to store the line feature class    
-        #arcpy.management.CreateFeatureDataset(workspace, "FeatureDataset", spatial_reference)
+    # Create a new feature class to store the line feature    
+    output_fc = "LineFeature1" #arcpy.management.CreateFeatureclass(workspace, "LineFeature1", "Polyline", "", "", "", spatial_reference)
 
-        # Create a new feature class to store the line feature    
-        # output_fc = arcpy.management.CreateFeatureclass(workspace, "LineFeature1", "Polyline", "", "", "", spatial_reference)
+    # Create an array of point objects and add the start and end points
+    array = arcpy.Array()
+    array.add(start_point)
+    array.add(end_point)
 
-        # Create an array of point objects and add the start and end points
-        array = arcpy.Array()
-        array.add(start_point)
-        array.add(end_point)
+    # Create a Polyline object using the array of points
+    polyline = arcpy.Polyline(array,spatial_reference)
 
-        # Create a Polyline object using the array of points
-        polyline = arcpy.Polyline(array,spatial_reference)                
-
-        # Create the line feature class
-        #arcpy.CreateFeatureclass_management(feature_dataset, output_fc, "Polyline")
-        #arcpy.management.CreateFeature
+    try:    
+    # Check if the feature class already exists
+        if not arcpy.Exists(output_fc):
+            arcpy.management.CreateFeatureclass(workspace, "LineFeature1", "Polyline", "", "", "", spatial_reference)
+            print(f"Create feature class {output_fc}.")
 
         # Create a new row in the feature class
-        with arcpy.da.Editor(workspace, multiuser_mode=False):  
-            with arcpy.da.InsertCursor("LineFeature1", "SHAPE@") as cursor:
-                cursor.insertRow([polyline])
-        del cursor
+        #with arcpy.da.Editor(workspace, multiuser_mode=False):  
+        with arcpy.da.InsertCursor("LineFeature1", "SHAPE@") as cursor:
+            LineGeo = polyline
+            cursor.insertRow([polyline])
+        del cursor    
+        arcpy.AddMessage("Insert line to LineFeature1...")    
+
+        lyrTest = r"C:\Users\afarrag\Documents\ArcGIS\Projects\splitTool\splitTool.gdb\LineFeature1"         
+        aprx = arcpy.mp.ArcGISProject("CURRENT")
+        #aprx = arcpy.mp.ArcGISProject(lyrTest)    
+        mapx = aprx.listMaps()[0]  # Assuming you want to add the line to the first map in the project    
+        mapx.addDataFromPath(lyrTest)
+        arcpy.AddMessage("Done..." )
         
-        print("Done...")
-        # Add the feature dataset to the map
-        #mapx.addDataFromPath(feature_dataset)
+        return LineGeo
     except Exception:
-            e = sys.exc_info()[1]
-            error_msg = e.args[0]
-            print(error_msg)
+        e = sys.exc_info()[1]
+        error_msg = e.args[0]
+        arcpy.AddMessage("error_msg..." + error_msg)
 ####################################################################################################################
 # Get parcel id
 pcp_id = arcpy.GetParameterAsText(0)
@@ -250,7 +234,10 @@ pcp_id = arcpy.GetParameterAsText(0)
 opt = arcpy.GetParameterAsText(1)
 
 # Get feature set
-featureSet = arcpy.GetParameterAsText(2)
+# featureSet = arcpy.GetParameterAsText(2)
+
+Parm1 = arcpy.GetParameterAsText(3)
+Parm2 = arcpy.GetParameterAsText(4)
 
 # Configure setting
 arcpy.env.workspace = arcpy.env.workspace
@@ -292,36 +279,41 @@ if cnt == 1:
 
     # Handle JSON parameter for feature set
     error_msg = None
-    try:
-        featureSet = arcpy.FeatureSet(featureSet)
-    except Exception:
-        e = sys.exc_info()[1]
-        error_msg = e.args[0]
+    # try:
+    #     featureSet = arcpy.FeatureSet(featureSet)
+    # except Exception:
+    #     e = sys.exc_info()[1]
+    #     error_msg = e.args[0]
     
-    if error_msg:
-        arcpy.SetParameterAsText(3, "error geometry parameter")
-        sys.exit(0)
-        
+    # if error_msg:
+    #     arcpy.SetParameterAsText(2, "error geometry parameter")
+    #     sys.exit(0)
+
     # Get geometry from feature set
     opGeo = None
-    with arcpy.da.SearchCursor(featureSet, ['SHAPE@']) as cursor:
-        for row in cursor:
-            opGeo = row[0]
-    del cursor
+
+    #create line
+    opGeo = createLine(Parm1, Parm2)
+    arcpy.AddMessage("type..." + opGeo.type)
+    
+    # with arcpy.da.SearchCursor(featureSet, ['SHAPE@']) as cursor:
+    #     for row in cursor:
+    #         opGeo = row[0]
+    # del cursor
 
     # Validation before operation process
     if opGeo:
 
         # Check if it's point
         if opGeo.type == "point":
-            arcpy.SetParameterAsText(3, "geometry parameter is point")
+            arcpy.SetParameterAsText(2, "geometry parameter is point")
             sys.exit(0)
 
         # Check if it has z
         '''
         pnt = opGeo.firstPoint
         if not pnt.Z:
-            arcpy.SetParameterAsText(3, "geometry parameter not has Z")
+            arcpy.SetParameterAsText(2, "geometry parameter not has Z")
             sys.exit(0)
         '''
 
@@ -356,7 +348,7 @@ if cnt == 1:
                         e = sys.exc_info()[1]
                         operation_status = e.args[0]
                 else:
-                    arcpy.SetParameterAsText(3, "geometry parameter must be polyline for " + opt)
+                    arcpy.SetParameterAsText(2, "geometry parameter must be polyline for " + opt)
                     sys.exit(0)
         
             if opt == "Merge":
@@ -370,10 +362,10 @@ if cnt == 1:
                         e = sys.exc_info()[1]
                         operation_status = e.args[0]
                 else:
-                    arcpy.SetParameterAsText(3, "geometry parameter must be polygon for " + opt)
+                    arcpy.SetParameterAsText(2, "geometry parameter must be polygon for " + opt)
                     sys.exit(0)
         else:
-            arcpy.SetParameterAsText(3, "geometry parameter far from parcel")
+            arcpy.SetParameterAsText(2, "geometry parameter far from parcel")
             sys.exit(0)
 
         # Configure log details
@@ -413,7 +405,7 @@ if cnt == 1:
             # Log operation details in text file
             logging()
 
-            arcpy.SetParameterAsText(3, "transaction failed")
+            arcpy.SetParameterAsText(2, "transaction failed")
             sys.exit(0)
                     
         if operation_status == "save":
@@ -438,9 +430,9 @@ if cnt == 1:
             logging()
 
             # Create Line
-            createLine()
+            #createLine(Parm1, Parm2)
 
-            arcpy.SetParameterAsText(3, "transaction ok")
+            arcpy.SetParameterAsText(2, "transaction ok")
         else:
             message = message + "\nSave Failed"
             message = message + "\n" + operation_status
@@ -448,9 +440,9 @@ if cnt == 1:
             # Log operation details in text file
             logging()
 
-            arcpy.SetParameterAsText(3, "transaction failed")
+            arcpy.SetParameterAsText(2, "transaction failed")
 
     else:
-        arcpy.SetParameterAsText(3, "missing geometry parameter")
+        arcpy.SetParameterAsText(2, "missing geometry parameter")
 else:
-    arcpy.SetParameterAsText(3, "Parcel Not Exist")
+    arcpy.SetParameterAsText(2, "Parcel Not Exist")
